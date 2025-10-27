@@ -1,0 +1,3 @@
+crowbar/swing "sounds/crowbar/barswing.ogg"
+crowbar/crit  "sounds/crowbar/barcrit.ogg"
+

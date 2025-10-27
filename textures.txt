@@ -1,0 +1,21 @@
+Sprite "CBARA1", 45, 10
+{
+	Offset 22, 10
+	Patch "CBARA0", 0, 0
+}
+
+Sprite "CBARA2A8", 45, 10
+{
+	Offset 22, 11
+	Patch "CBARA0", 0, 0
+}
+
+Sprite "CBARA5", 45, 10
+{
+	Offset 22, 4
+	Patch "CBARA0", 0, 0 { FlipY }
+}
+
+
+Sprite "CBARA3A7", 1, 1 {}
+Sprite "CBARA4A6", 1, 1 {}
