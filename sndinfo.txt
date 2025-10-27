@@ -1,3 +1,5 @@
 crowbar/swing "sounds/crowbar/barswing.ogg"
 crowbar/crit  "sounds/crowbar/barcrit.ogg"
 
+crowbar/hitflesh "sounds/crowbar/barflesh.ogg"
+crowbar/hitwall "sounds/crowbar/barwall.ogg"

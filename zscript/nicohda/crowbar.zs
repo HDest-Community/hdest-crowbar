@@ -1,40 +1,34 @@
-class NHDACrowbar : HDWeapon
+class NHDACrowbar : HDFist// 
 {
+    //this is for the door jamming mechanic
 	const CrowbarRange = 72;
 	const CrowbarRangeSqr = CrowbarRange ** 2;
 
-	default
-	{
-		inventory.pickupmessage "You got the crowbar!";
-		weapon.slotpriority 0;
-		weapon.slotnumber 1;
 
-		hdweapon.refid "cbr";
-		tag "crowbar";
-
+    default{
+		+ambush
+		+WEAPON.MELEEWEAPON 
+		+WEAPON.NOALERT 
+	  //+WEAPON.NO_AUTO_SWITCH
+		+nointeraction
 		+hdweapon.fitsinbackpack
-
+		
 		scale 0.75;
-
 		radius 12;
 		height 4;
 
-		inventory.maxamount 3;
-
-		+SpriteAngle
-		SpriteAngle 180;
-
-		+NoBlood
-		+NoDamage
-		health TELEFRAG_DAMAGE;
-		painchance 256;
-	}
-
-	override void MarkPrecacheSounds( void )
-	{
-		MarkSound( "crowbar/swing" );
-		MarkSound( "crowbar/crit" );
-		MarkSound( "weapon/smack" );
+		weapon.selectionorder 100;
+		weapon.slotpriority 0.2;
+		weapon.slotnumber 1;
+		obituary "%o got whacked in the head by %k's crowbar."; //"$OB_FIST";
+		
+		weapon.kickback 120;
+		weapon.bobstyle "Alpha";
+		weapon.bobspeed 2.6;
+		weapon.bobrangex 0.1;
+		weapon.bobrangey 0.5;
+		tag "Crowbar";
+		hdweapon.refid "cbr";
 	}
 
 	override bool CanCollideWith( Actor other, bool passive )
@@ -54,8 +48,10 @@ class NHDACrowbar : HDWeapon
 	override string GetHelpText( void )
 	{
 		return
-		WEPHELP_FIRE .. " Swing\n"..
-		WEPHELP_ALTFIRE .. " Place\n"
+		WEPHELP_FIRE.." Swing\n"
+		..WEPHELP_ALTFIRE.."  Lunge and swing\n"
+		..WEPHELP_RELOAD.."  Kick and swing\n"
+		..WEPHELP_UNLOAD.."  Jam into place\n"
 		;
 	}
 
@@ -130,7 +126,7 @@ class NHDACrowbar : HDWeapon
 		super.OnDestroy();
 	}
 
-	void CrowbarAltFire( flinetracedata data )
+	void CrowbarJam( flinetracedata data )
 	{
 		sector blocked;
 		vector3 newPos;
@@ -271,97 +267,137 @@ class NHDACrowbar : HDWeapon
 		}
 	}
 
+	action void MeleeAttack(double dmg){//copied from current HDFist code as of 01-21-23
+		let punchrange=56.;//48+8
+		if(hdplayerpawn(self))punchrange*=hdplayerpawn(self).heightmult;
 
-	action void MeleeAttack( double dmg )
-	{
-		// ripped from HD fist code
-		// TODO: make this suck less
 		flinetracedata punchline;
-		bool hit = linetrace(
-			angle, 48, pitch,
+		bool punchy=linetrace(
+			angle,punchrange,pitch,
 			TRF_NOSKY,
-			offsetz:height-12,
+			offsetz:height*0.77,
 			data:punchline
 		);
-		if( !hit ) return;
+		if(!punchy)return;
 
-		// actual puff effect if the shot connects
-		LineAttack( angle, 48, pitch, punchline.hitline ? ( countinv( "PowerStrength" ) ? random( 50, 120 ) : random( 5, 15 ) ) : 0, "none",
-			countinv( "PowerStrength" ) ? "BulletPuffMedium" : "BulletPuffSmall",
+		//actual puff effect if the shot connects
+		LineAttack(
+			angle,
+			punchrange,
+			pitch,
+			punchline.hitline?(int(frandom(5,15)*invoker.strength)):0,
+			"none",
+			(invoker.strength>1.5)?"BulletPuffMedium":"BulletPuffSmall",
 			flags:LAF_NORANDOMPUFFZ|LAF_OVERRIDEZ,
-			offsetz: height - 12
+			offsetz:height*0.78
 		);
 
-		let punchee = punchline.hitactor;
+		if(!punchline.hitactor){
+			HDF.Give(self,"WallChunkAmmo",1);
+			if(punchline.hitline){		
+			//damage sectors
+		    A_StartSound("crowbar/hitwall",CHAN_AUTO);
+		    A_Recoil(1+dmg/50);
+            doordestroyer.destroydoor(self,frandom(16,frandom(16,72))*invoker.strength,frandom(0,frandom(dmg/10,dmg/5)*invoker.strength));
+            doordestroyer.CheckDirtyWindowBreak(punchline.hitline,0.09+0.03*invoker.strength,punchline.hitlocation);
+			}//breaks windows 3x better
+			return;
+		}
+		actor punchee=punchline.hitactor;
 
-		if( !punchee )
-			HDF.Give( self, "WallChunkAmmo", 4 );
 
-		// charge!
-		if( punchee )
-			dmg += HDMath.TowardsEachOther( self, punchee ) * 2;
-		else
-			dmg += vel.Length() * 2;
+		//charge!
+		if(invoker.flicked)dmg*=1.5;
+		else dmg+=HDMath.TowardsEachOther(self,punchee)*3;
 
-		// come in swinging
-		let onr = hdplayerpawn( self );
-		if( onr )
-		{
-			int iy = max( abs( player.cmd.pitch ), abs( player.cmd.yaw ) );
-
-			if( iy > 0 ) iy /= 6;
-			else if( iy < 0 ) iy /= 3;
-
-			dmg += min( abs( iy ), dmg * 0.7 );
+		//come in swinging
+		let onr=hdplayerpawn(self);
+		double ptch=0.;
+		double pyaw=0.;
+		if(onr){
+			ptch=deltaangle(onr.lastpitch,onr.pitch);
+			pyaw=deltaangle(onr.lastangle,onr.angle);
+			double iy=max(abs(ptch),abs(pyaw));
+			if(pyaw<0)iy*=1.6;
+			if(player.onground)dmg+=min(abs(iy)*5,dmg*3);
 		}
 
-		// shit happens
-		dmg *= frandom( 0.8, 1.2 );
+		//shit happens
+		dmg*=invoker.strength*frandom(1.,1.2);
 
-		// other effects
+		//other effects
 		if(
 			onr
-			&&punchee
 			&&!punchee.bdontthrust
 			&&(
-				punchee.mass < 200
+				punchee.mass<200
 				||(
-					punchee.radius * 2 < punchee.height
-					&& punchline.hitlocation.z > punchee.pos.z + punchee.height * 0.6
+					punchee.radius*2<punchee.height
+					&& punchline.hitlocation.z>punchee.pos.z+punchee.height*0.6
 				)
 			)
 		){
-			double iyaw = player.cmd.yaw * ( 65535. / 360. );
-			if( abs( iyaw ) > ( 0.5 ) )
-				punchee.A_SetAngle( punchee.angle - iyaw * 100, SPF_INTERPOLATE );
-
-			double ipitch = player.cmd.pitch * ( 65535. / 360. );
-			if( abs( ipitch ) > ( 0.5 * 65535 / 360 ) )
-				punchee.A_SetPitch( punchee.angle + ipitch * 100, SPF_INTERPOLATE );
+			if(abs(pyaw)>(0.5)){
+				punchee.A_SetAngle(clamp(normalize180(punchee.angle-pyaw*100),-50,50),SPF_INTERPOLATE);
+			}
+			if(abs(ptch)>(0.5*65535/360)){
+				punchee.A_SetPitch(clamp((punchee.angle+ptch*100)%90,-30,30),SPF_INTERPOLATE);
+			}
 		}
 
-		// headshot lol
+		let hdmp=hdmobbase(punchee);
+
+		//headshot lol
 		if(
-			punchee
-			&& !punchee.bnopain
-			&& punchee.health > 0
-			&& !( punchee is "HDBarrel" )
-			&& punchline.hitlocation.z > punchee.pos.z + punchee.height * 0.75
+			!punchee.bnopain
+			&&punchee.health>0
+			&&(
+				!hdmp
+				||!hdmp.bheadless
+			)
+			&&punchline.hitlocation.z>punchee.pos.z+punchee.height*0.75
 		){
-			if( hd_debug ) A_Log( "HEAD SHOT" );
-			hdmobbase.forcepain( punchee );
-			dmg *= frandom( 1.1, 1.8 );
+		    punchee.A_StartSound("crowbar/hitflesh",CHAN_AUTO);
+			if(hd_debug)A_Log("HEAD SHOT");
+			hdmobbase.forcepain(punchee);
+			dmg*=frandom(1.1,1.8);
+			if(hdmp)hdmp.stunned+=(int(dmg)>>2);
 		}
 
-		if( hd_debug ){
-			string pch = "level";
-			if( !!punchee ) pch = punchee.getclassname();
-			A_Log( string.format( "Hit %s for %i damage!", pch, dmg ) );
-		}
-		if( punchee && ( dmg * 2 > punchee.health ) ) punchee.A_StartSound( "misc/bulletflesh", CHAN_AUTO );
-		if( punchee ) punchee.damagemobj( self, self, int( dmg ), "SmallArms0" );
+		if(hd_debug)A_Log("Crowbar'd "..punchee.getclassname().." for "..int(dmg).." damage!");
 
-		if( !punchee ) doordestroyer.destroydoor( self, dmg * 0.3, dmg * 0.03, 48, height - 12, angle, pitch );
+		bool puncheewasalive=!punchee.bcorpse&&punchee.health>0;
+
+		if(dmg*2>punchee.health)punchee.A_StartSound("crowbar/hitflesh",CHAN_AUTO);
+		punchee.damagemobj(self,self,int(dmg),"melee");
+
+		if(!punchee)invoker.targethealth=0;else{
+			invoker.targethealth=punchee.health;
+			invoker.targetspawnhealth=punchee.spawnhealth();
+			invoker.targettimer=0;
+			if(
+				(
+					punchee.bismonster
+					||!!punchee.player
+				)
+				&&invoker.zerk
+			){
+				if(
+					punchee.bcorpse
+					&&puncheewasalive
+				){
+					A_StartSound("weapons/zerkding2",CHAN_WEAPON,CHANF_OVERLAP|CHANF_LOCAL);
+					givebody(10);
+					if(onr){
+						onr.fatigue-=onr.fatigue>>2;
+						onr.usegametip("\cfK I L L !");
+					}
+				}else{
+					A_StartSound("weapons/zerkding",CHAN_WEAPON,CHANF_OVERLAP|CHANF_LOCAL);
+				}
+			}
+		}
+		
 	}
 
 	double charge;
@@ -377,7 +413,7 @@ class NHDACrowbar : HDWeapon
 		CBAR A 0
 		{
 			// TODO: better pain sound
-			invoker.A_StartSound( "weapon/smack" );
+			invoker.A_StartSound( "crowbar/hitwall" );
 			invoker.DetachCrowbar();
 		}
 		goto spawn;
@@ -391,39 +427,123 @@ class NHDACrowbar : HDWeapon
 		goto deselect0small;
 
 	ready:
-		CRWB A 1 A_WeaponReady();
-		goto readyend;
+		#### A 1{
+			if(
+				invoker.washolding
+				&&player.cmd.buttons&(
+					BT_ATTACK
+					|BT_ALTATTACK
+					|BT_RELOAD
+					|BT_ZOOM
+					|BT_USER1
+					|BT_USER2
+					|BT_USER3
+					|BT_USER4
+				)
+			){
+				setweaponstate("nope");
+				return;
+			}
+			A_WeaponReady(WRF_ALL);
+			invoker.flicked=false;
+			invoker.washolding=false;
+		}goto readyend;
+
+    reload:
+        #### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
+	flick:
+		#### B 1 offset(0,50);
+		#### C 1 offset(0,36);
+		#### DDDDDD 0 A_CustomPunch((int(ceil(invoker.strength))),1,CPF_PULLIN,"HDFistPuncher",36);
+		#### DD 1 offset(0,38){invoker.flicked=true;}
+		#### C 1 offset(0,42);
+		#### B 1 offset(0,50);
+		goto fire;
 
 	// TODO: recoil, stamina drain, faster swing when zerked ( needs new sprites! )
 	fire:
+	#### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
 	swing:
-		CRWB BCD 2;
+		CRWB BBCD 1;//faster prep
 	swinghold:
 		TNT1 A 1
 		{
-			// might do away with the whole charge mechanic...
-			invoker.charge = min( invoker.charge + 1. / 3., 10 );
+				
+			let hdp=hdplayerpawn(self);
+			let swingdmg = invoker.charge;
+
+            //holding the crowbar ready tires you
+            if(!random(0,99))hdp.fatigue+=1;
+			invoker.charge = min( swingdmg + 1. / 3., 10 );
+		
+            //aborts swing if stunned or tired
+			if(
+				hdp.fatigue>HDCONST_SPRINTFATIGUE
+				||hdp.stunned>0
+			){  A_PlaySkinSound(SKINSOUND_GRUNT,"*usefail");
+				setweaponstate("swing_end");
+				return;
+			}
 		}
-		TNT1 A 0 A_JumpIf( PressingFire(), "swinghold" );
+		TNT1 A 0 A_JumpIf( PressingFire()||PressingAltFire()||PressingReload(), "swinghold" );
 		CRWB EFGHI 1;
 		CRWB J 1
 		{
 			A_StartSound( "crowbar/swing", CHAN_WEAPON );
 			if( invoker.charge >= 8 ) A_StartSound( "crowbar/crit", 9 );
+			hdplayerpawn(self).fatigue+=1+invoker.charge/2;
+			//swinging the crowbar exhausts your stamina,
+			//heavy swings are more tiring than light swings
 		}
 		CRWB KL 1;
 		CRWB M 1 MeleeAttack( 50 + 3 * invoker.charge );
 		CRWB NOP 1;
-		TNT1 A 8 { invoker.charge = 0; }
-		CRWB DCB 3;
+		TNT1 A 6 A_JumpIf(invoker.zerk,1);//faster swings if zerked
+		TNT1 A 2 {  invoker.charge = 0; 
+		            if(PressingFire())setweaponstate("swinghold");
+	            }
+	swing_end:
+		CRWB DDCB 1;//faster recovery
+		#### A 0 A_JumpIf(PressingFire(),"nope");
 		goto ready;
 
 	altfire:
+	#### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
+	bodycheck:
+		#### A 3{
+			let hdp=hdplayerpawn(self);
+
+			if(
+				hdp.fatigue>HDCONST_SPRINTFATIGUE
+				||hdp.stunned>0
+				||hdp.strength<0.9
+				||(
+					!player.onground
+					&&checkmove(pos.xy-(cos(angle),sin(angle))*4)
+				)
+			){
+				setweaponstate("swing");
+				return;
+			}
+
+			hdp.fatigue+=4;
+			A_ChangeVelocity(
+				hdp.strength*(invoker.zerk?8:6)/max(1.,hdp.overloaded),
+				0,0,CVF_RELATIVE
+			);
+		}
+		CRWB BCD 1;
+		goto swinghold;
+	
+	firemode://two-handed weapon, can't grab
+	    goto nope;
+	
+	unload:
 	place:
 		CRWB BCD 2;
 	placehold:
 		TNT1 A 1 A_WeaponBusy;
-		TNT1 A 0 A_JumpIf( PressingAltFire(), "placehold" );
+		TNT1 A 0 A_JumpIf( PressingUnload(), "placehold" );
 		TNT1 A 0
 		{
 			flinetracedata data;
@@ -433,7 +553,7 @@ class NHDACrowbar : HDWeapon
 				data:data
 			);
 
-			invoker.CrowbarAltFire( data );
+			invoker.CrowbarJam( data );
 		}
 		CRWB DCB 2;
 		goto nope;
