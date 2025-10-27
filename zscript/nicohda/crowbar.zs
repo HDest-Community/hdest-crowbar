@@ -1,26 +1,38 @@
-class NHDACrowbar : HDFist// 
+class NHDACrowbar : HDWeapon
 {
-    //this is for the door jamming mechanic
+    //copied from HDFist
+    int targettimer;
+	int targethealth;
+	int targetspawnhealth;
+	bool flicked;
+	bool washolding;
+	
+	//door jam range
 	const CrowbarRange = 72;
 	const CrowbarRangeSqr = CrowbarRange ** 2;
 
-
-    default{
-		+ambush
+	default{
 		+WEAPON.MELEEWEAPON 
 		+WEAPON.NOALERT 
-	  //+WEAPON.NO_AUTO_SWITCH
-		+nointeraction
 		+hdweapon.fitsinbackpack
+		+noblood
+		+nodamage
 		
 		scale 0.75;
 		radius 12;
 		height 4;
+		
+		health TELEFRAG_DAMAGE;
+		painchance 256;
+		
+		+SpriteAngle
+		SpriteAngle 180;
 
 		weapon.selectionorder 100;
 		weapon.slotpriority 0.2;
 		weapon.slotnumber 1;
-		obituary "%o got whacked in the head by %k's crowbar."; //"$OB_FIST";
+		inventory.pickupmessage "You got the crowbar! Crack some skulls!";
+		obituary "%o got bonked by %k's crowbar."; 
 		
 		weapon.kickback 120;
 		weapon.bobstyle "Alpha";
@@ -45,15 +57,21 @@ class NHDACrowbar : HDFist//
 
 	override string, double GetPickupSprite() { return "CBARA0", 1.; }
 
+    override void DrawHUDStuff(HDStatusBar sb,HDWeapon hdw,HDPlayerPawn hpl){
+		let ww=NHDACrowbar(hdw);
+		if(ww.targethealth)sb.drawwepnum(ww.targethealth,ww.targetspawnhealth);
+	}
+
 	override string GetHelpText( void )
 	{
 		return
 		WEPHELP_FIRE.." Swing\n"
 		..WEPHELP_ALTFIRE.."  Lunge and swing\n"
 		..WEPHELP_RELOAD.."  Kick and swing\n"
-		..WEPHELP_UNLOAD.."  Jam into place\n"
+		..WEPHELP_UNLOAD.."  Place\n"
 		;
 	}
+
 
 	private bool attached;
 
@@ -267,6 +285,40 @@ class NHDACrowbar : HDFist//
 		}
 	}
 
+	double strength;
+	bool zerk;
+	action void A_StrengthTics(int mintics,int maxtics=-1){
+		if(invoker.strength==1.)return;
+		if(maxtics<0)maxtics=tics;
+		int ttt=min(maxtics,int(tics/invoker.strength));
+		A_SetTics(max(mintics,int(ttt)));
+	}
+	override void DoEffect(){
+		super.DoEffect();
+		let hdp=hdplayerpawn(owner);
+        if(!hdp)return;
+        //don't run this if not in inventory
+        //otherwise the game crashes lol
+
+		if(targettimer<70)targettimer++;else{
+			tracer=null;
+			targettimer=0;
+			targethealth=0;
+		}
+		
+		strength=hdp?hdp.strength:1.;
+		zerk=HDZerk.IsZerk(owner);
+
+		if(zerk){
+			strength*=1.2;
+			if(!random[zrkbs](0,70)){
+				static const string zrkbs[]={"kill","k i l l","k I L L","K\n   I\n       L\n          L","Kill.","KILL","k i l l","Kill!","K  I  L  L","kill...","Kill...","k i l l . . .","      kill","  ... kill ...","kill,","kiiiilllll!!!","kill~","kill <3","kill uwu"};
+				hdp.usegametip("\cr"..zrkbs[random(0,zrkbs.size()-1)]);
+			}
+		}
+	}
+
+
 	action void MeleeAttack(double dmg){//copied from current HDFist code as of 01-21-23
 		let punchrange=56.;//48+8
 		if(hdplayerpawn(self))punchrange*=hdplayerpawn(self).heightmult;
@@ -460,15 +512,13 @@ class NHDACrowbar : HDFist//
 		#### B 1 offset(0,50);
 		goto fire;
 
-	// TODO: recoil, stamina drain, faster swing when zerked ( needs new sprites! )
 	fire:
-	#### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
+	#### A 0 A_JumpIf(hdplayerpawn(self).stunned>1,"nope");
 	swing:
 		CRWB BBCD 1;//faster prep
 	swinghold:
 		TNT1 A 1
 		{
-				
 			let hdp=hdplayerpawn(self);
 			let swingdmg = invoker.charge;
 
@@ -479,7 +529,10 @@ class NHDACrowbar : HDFist//
             //aborts swing if stunned or tired
 			if(
 				hdp.fatigue>HDCONST_SPRINTFATIGUE
-				||hdp.stunned>0
+			//	||hdp.stunned>0
+			//removed stun check, it screw up swings
+			//when walking near steps/ledges
+			
 			){  A_PlaySkinSound(SKINSOUND_GRUNT,"*usefail");
 				setweaponstate("swing_end");
 				return;
