@@ -1,7 +1,7 @@
 class NHDACrowbar : HDWeapon
 {
-    //copied from HDFist
-    int targettimer;
+	//copied from HDFist
+	int targettimer;
 	int targethealth;
 	int targetspawnhealth;
 	bool flicked;
@@ -34,15 +34,15 @@ class NHDACrowbar : HDWeapon
 		weapon.selectionorder 100;
 		weapon.slotpriority 0.2;
 		weapon.slotnumber 1;
-		inventory.pickupmessage "You got the crowbar! Crack some skulls!";
-		obituary "%o got bonked by %k's crowbar."; 
+		inventory.pickupmessage "$PICKUP_CROWBAR";
+		obituary "$OB_CROWBAR"; 
 		
 		weapon.kickback 120;
 		weapon.bobstyle "Alpha";
 		weapon.bobspeed 2.6;
 		weapon.bobrangex 0.1;
 		weapon.bobrangey 0.5;
-		tag "Crowbar";
+		tag "$TAG_CROWBAR";
 		hdweapon.refid "cbr";
 	}
 
@@ -60,7 +60,7 @@ class NHDACrowbar : HDWeapon
 
 	override string, double GetPickupSprite() { return "CBARA0", 1.; }
 
-    override void DrawHUDStuff(HDStatusBar sb,HDWeapon hdw,HDPlayerPawn hpl){
+	override void DrawHUDStuff(HDStatusBar sb,HDWeapon hdw,HDPlayerPawn hpl){
 		let ww=NHDACrowbar(hdw);
 		if(ww.targethealth)sb.drawwepnum(ww.targethealth,ww.targetspawnhealth);
 	}
@@ -299,9 +299,9 @@ class NHDACrowbar : HDWeapon
 	override void DoEffect(){
 		super.DoEffect();
 		let hdp=hdplayerpawn(owner);
-        if(!hdp)return;
-        //don't run this if not in inventory
-        //otherwise the game crashes lol
+		if(!hdp)return;
+		//don't run this if not in inventory
+		//otherwise the game crashes lol
 
 		if(targettimer<70)targettimer++;else{
 			tracer=null;
@@ -351,10 +351,10 @@ class NHDACrowbar : HDWeapon
 			HDF.Give(self,"WallChunkAmmo",1);
 			if(punchline.hitline){		
 			//damage sectors
-		    A_StartSound("crowbar/hitwall",CHAN_AUTO);
-		    A_Recoil(1+dmg/50);
-            doordestroyer.destroydoor(self,frandom(16,frandom(16,72))*invoker.strength,frandom(0,frandom(dmg/10,dmg/5)*invoker.strength));
-            doordestroyer.CheckDirtyWindowBreak(punchline.hitline,0.09+0.03*invoker.strength,punchline.hitlocation);
+			A_StartSound("crowbar/hitwall",CHAN_AUTO);
+			A_Recoil(1+dmg/50);
+			doordestroyer.destroydoor(self,frandom(16,frandom(16,72))*invoker.strength,frandom(0,frandom(dmg/10,dmg/5)*invoker.strength));
+			doordestroyer.CheckDirtyWindowBreak(punchline.hitline,0.09+0.03*invoker.strength,punchline.hitlocation);
 			}//breaks windows 3x better
 			return;
 		}
@@ -412,7 +412,7 @@ class NHDACrowbar : HDWeapon
 			)
 			&&punchline.hitlocation.z>punchee.pos.z+punchee.height*0.75
 		){
-		    punchee.A_StartSound("crowbar/hitflesh",CHAN_AUTO);
+			punchee.A_StartSound("crowbar/hitflesh",CHAN_AUTO);
 			if(hd_debug)A_Log("HEAD SHOT");
 			hdmobbase.forcepain(punchee);
 			dmg*=frandom(1.1,1.8);
@@ -504,8 +504,8 @@ class NHDACrowbar : HDWeapon
 			invoker.washolding=false;
 		}goto readyend;
 
-    reload:
-        #### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
+	reload:
+		#### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
 	flick:
 		#### B 1 offset(0,50);
 		#### C 1 offset(0,36);
@@ -525,11 +525,11 @@ class NHDACrowbar : HDWeapon
 			let hdp=hdplayerpawn(self);
 			let swingdmg = invoker.charge;
 
-            //holding the crowbar ready tires you
-            if(!random(0,99))hdp.fatigue+=1;
+			//holding the crowbar ready tires you
+			if(!random(0,99))hdp.fatigue+=1;
 			invoker.charge = min( swingdmg + 1. / 3., 10 );
 		
-            //aborts swing if stunned or tired
+			//aborts swing if stunned or tired
 			if(
 				hdp.fatigue>HDCONST_SPRINTFATIGUE
 			){  A_PlaySkinSound(SKINSOUND_GRUNT,"*usefail");
@@ -551,9 +551,11 @@ class NHDACrowbar : HDWeapon
 		CRWB M 1 MeleeAttack( 50 + 3 * invoker.charge );
 		CRWB NOP 1;
 		TNT1 A 6 A_JumpIf(invoker.zerk,1);//faster swings if zerked
-		TNT1 A 2 {  invoker.charge = 0; 
-		            if(PressingFire())setweaponstate("swinghold");
-	            }
+		TNT1 A 2
+		{
+			invoker.charge = 0; 
+			if(PressingFire())setweaponstate("swinghold");
+		}
 	swing_end:
 		CRWB DDCB 1;//faster recovery
 		#### A 0 A_JumpIf(PressingFire(),"nope");
@@ -588,7 +590,7 @@ class NHDACrowbar : HDWeapon
 		goto swinghold;
 	
 	firemode://two-handed weapon, can't grab
-	    goto nope;
+		goto nope;
 	
 	unload:
 	place:

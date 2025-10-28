@@ -1,0 +1,5 @@
+// Spawn Table Entries
+addSpawnTableSingleEntry => { "tableName": "ChainsawReplaces", "name": "NHDACrowbar", "weight": "0.333", "persists": "true" }
+
+// Merchant Store Entries
+newMerchantStoreItem => { "enabled": "#hdm_enable_crowbar", "type": "weapon", "category": "$MERCH_CAT_CROWBAR", "item": "NHDACrowbar", "icon": "CBARA0", "displayName": "$MERCH_TAG_CROWBAR", "basePrice": "100", "flavorText": "$MERCH_FLAVOR_CROWBAR" }

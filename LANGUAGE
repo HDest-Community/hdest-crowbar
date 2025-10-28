@@ -1,0 +1,11 @@
+[enu default]
+
+TAG_CROWBAR = "Crowbar";
+PICKUP_CROWBAR = "You got the crowbar! Crack some skulls!";
+
+OB_CROWBAR = "%o got bonked by %k's crowbar.";
+
+// Merchant Store Entries
+MERCH_CAT_CROWBAR = "Nicohda";
+MERCH_TAG_CROWBAR = "Crowbar";
+MERCH_FLAVOR_CROWBAR = "Crack some skulls!";
