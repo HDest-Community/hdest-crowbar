@@ -14,7 +14,10 @@ class NHDACrowbar : HDWeapon
 	default{
 		+WEAPON.MELEEWEAPON 
 		+WEAPON.NOALERT 
+		+WEAPON.NO_AUTO_SWITCH
 		+hdweapon.fitsinbackpack
+		+hdweapon.dontnull
+		
 		+noblood
 		+nodamage
 		
@@ -320,7 +323,7 @@ class NHDACrowbar : HDWeapon
 
 
 	action void MeleeAttack(double dmg){//copied from current HDFist code as of 01-21-23
-		let punchrange=56.;//48+8
+		let punchrange=64.;//48+16
 		if(hdplayerpawn(self))punchrange*=hdplayerpawn(self).heightmult;
 
 		flinetracedata punchline;
@@ -513,7 +516,7 @@ class NHDACrowbar : HDWeapon
 		goto fire;
 
 	fire:
-	#### A 0 A_JumpIf(hdplayerpawn(self).stunned>1,"nope");
+	#### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
 	swing:
 		CRWB BBCD 1;//faster prep
 	swinghold:
@@ -529,10 +532,6 @@ class NHDACrowbar : HDWeapon
             //aborts swing if stunned or tired
 			if(
 				hdp.fatigue>HDCONST_SPRINTFATIGUE
-			//	||hdp.stunned>0
-			//removed stun check, it screw up swings
-			//when walking near steps/ledges
-			
 			){  A_PlaySkinSound(SKINSOUND_GRUNT,"*usefail");
 				setweaponstate("swing_end");
 				return;
