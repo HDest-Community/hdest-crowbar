@@ -1,25 +1,18 @@
-class NHDACrowbar : HDWeapon
-{
-	//copied from HDFist
-	int targettimer;
-	int targethealth;
-	int targetspawnhealth;
-	bool flicked;
-	bool washolding;
-	
-	//door jam range
-	const CrowbarRange = 72;
-	const CrowbarRangeSqr = CrowbarRange ** 2;
+class NHDACrowbar : HDCoreBaseMeleeWeapon {
 
-	default{
-		+WEAPON.MELEEWEAPON 
-		+WEAPON.NOALERT 
-		+WEAPON.NO_AUTO_SWITCH
-		+hdweapon.fitsinbackpack
-		+hdweapon.dontnull
-		
-		+noblood
-		+nodamage
+	const CROWBAR_RANGE = 72;
+	const CROWBAR_RANGE_SQUARED = CROWBAR_RANGE ** 2;
+
+	private bool attached;
+
+	double charge;
+
+	private Sector blockedSector;
+	private bool blockedSectorWasSilent;
+
+	default {
+		+NOBLOOD
+		+NODAMAGE
 		
 		scale 0.75;
 		radius 12;
@@ -31,585 +24,389 @@ class NHDACrowbar : HDWeapon
 		+SpriteAngle
 		SpriteAngle 180;
 
-		weapon.selectionorder 100;
-		weapon.slotpriority 0.2;
-		weapon.slotnumber 1;
-		inventory.pickupmessage "$PICKUP_CROWBAR";
 		obituary "$OB_CROWBAR"; 
-		
 		weapon.kickback 120;
-		weapon.bobstyle "Alpha";
-		weapon.bobspeed 2.6;
-		weapon.bobrangex 0.1;
-		weapon.bobrangey 0.5;
+		weapon.slotpriority 0.2;
+		inventory.pickupmessage "$PICKUP_CROWBAR";
 		tag "$TAG_CROWBAR";
-		hdweapon.refid "cbr";
+		hdweapon.refid HDLD_CROWBAR;
 	}
 
-	override bool CanCollideWith( Actor other, bool passive )
-	{
-		// collide with bullets
-		return super.CanCollideWith( other, passive ) || ( bShootable && other.bMissile );
-	}
+	override bool CanCollideWith(Actor other, bool passive) { return super.CanCollideWith(other, passive) || (bSHOOTABLE && other.bMISSILE); }
 
-	override bool AddSpareWeapon( Actor newOwner ) { return AddSpareWeaponRegular( newOwner ); }
-	override HDWeapon GetSpareWeapon( Actor newOwner, bool reverse, bool doSelect ) { return GetSpareWeaponRegular( newOwner, reverse, doSelect ); }
+	override double WeaponBulk() { return 64; }
 
-	override double WeaponBulk( void ) { return 64; }
-	override double GunMass( void ) { return 12; }
+	override double GunMass() { return 12; }
 
-	override string, double GetPickupSprite() { return "CBARA0", 1.; }
+	override string, double GetPickupSprite() { return "CBARA0", 1.0; }
 
-	override void DrawHUDStuff(HDStatusBar sb,HDWeapon hdw,HDPlayerPawn hpl){
-		let ww=NHDACrowbar(hdw);
-		if(ww.targethealth)sb.drawwepnum(ww.targethealth,ww.targetspawnhealth);
-	}
+	override string GetHelpText() {
+		LocalizeHelp();
 
-	override string GetHelpText( void )
-	{
-		return
-		WEPHELP_FIRE.." Swing\n"
-		..WEPHELP_ALTFIRE.."  Lunge and swing\n"
-		..WEPHELP_RELOAD.."  Kick and swing\n"
-		..WEPHELP_UNLOAD.."  Place\n"
+		return WEPHELP_FIRE..StringTable.Localize("$CROWBARWH_FIRE")
+		..WEPHELP_ALTFIRE..StringTable.Localize("$CROWBARWH_ALTFIRE")
+		..WEPHELP_RELOAD..StringTable.Localize("$CROWBARWH_RELOAD")
+		..WEPHELP_UNLOAD..StringTable.Localize("$CROWBARWH_UNLOAD")
 		;
 	}
 
-
-	private bool attached;
-
-	private sector blockedSector;
-	private bool blockedSectorWasSilent;
-
-	void AttachCrowbar( sector blocked, bool onFloor )
-	{
+	void AttachCrowbar(Sector blocked, bool onFloor) {
+		if (attached) return;
 		attached = true;
 
-		if( blocked )
-		{
+		if (blocked) {
 			blockedSector = blocked;
 
-			if( // selected plane has sector effect thinker
-				( onFloor && blocked.floordata ) ||
-				( !onFloor && blocked.ceilingdata )
-			)
-			{
-				blockedSectorWasSilent = bool( blocked.flags & sector.SECF_SILENTMOVE );
-				if( !blockedSectorWasSilent ) blocked.flags |= sector.SECF_SILENTMOVE;
+			// selected plane has sector effect thinker
+			if (
+				(onFloor && blocked.floordata)
+				|| (!onFloor && blocked.ceilingdata)
+			) {
+				blockedSectorWasSilent = blocked.flags & Sector.SECF_SILENTMOVE;
+				if (!blockedSectorWasSilent) blocked.flags |= Sector.SECF_SILENTMOVE;
 			}
 		}
 
 		spriteAngle = onFloor ? 0 : 225;
 
-		bNoGravity = true;
-		bWallSprite = true;
-		bActLikeBridge = true;
-
-		bShootable = true;
+		bNOGRAVITY = bWALLSPRITE = bACTLIKEBRIDGE = bSHOOTABLE = true;
 
 		// do not the dragging
 		mass = int.MAX;
 	}
 
-	void DetachCrowbar( void )
-	{
-		if( !attached ) return;
+	void DetachCrowbar() {
+		if (!attached) return;
 		attached = false;
 
-		if( blockedSector )
-		{
-			if( !blockedSectorWasSilent )
-				blockedSector.flags &= ~sector.SECF_SILENTMOVE;
+		if (blockedSector) {
+			if (!blockedSectorWasSilent) blockedSector.flags &= ~Sector.SECF_SILENTMOVE;
 
 			blockedSector = null;
 		}
 
-		SpriteAngle = 180;
+		spriteAngle = 180;
 
-		bNoGravity = false;
-		bWallSprite = false;
-		bActLikeBridge = false;
-
-		bShootable = false;
+		bNOGRAVITY = bWALLSPRITE = bACTLIKEBRIDGE = bSHOOTABLE = false;
 
 		mass = default.mass;
 	}
 
-	override void ActualPickup( Actor other, bool silent )
-	{
+	override void ActualPickup(Actor other, bool silent) {
+		super.ActualPickup(other, silent);
+
 		DetachCrowbar();
-		super.ActualPickup( other, silent );
 	}
 
-	override void OnDestroy()
-	{
-		DetachCrowbar();
+	override void OnDestroy() {
 		super.OnDestroy();
+
+		DetachCrowbar();
 	}
 
-	void CrowbarJam( flinetracedata data )
-	{
-		sector blocked;
-		vector3 newPos;
+	void CrowbarJam(FLineTraceData data) {
+		Sector blocked;
+		Vector3 newPos;
 		bool place = false;
 		bool onFloor = false;
 
 		double newAngle;
 
-		switch( data.HitType )
-		{
-		case Trace_HitWall:
-			blocked = data.HitSector;
+		switch(data.HitType) {
+			case Trace_HitWall:
+				blocked = data.HitSector;
 
-			let hitLine = data.HitLine;
+				let hitLine = data.HitLine;
 
-			let delta = hitLine.delta;
-			if( data.LineSide == Line.front )
-				delta = -delta;
+				let delta = hitLine.delta;
+				if (data.LineSide == Line.FRONT) delta = -delta;
 
-			let hitNormal = ( -delta.y, delta.x ).Unit();
+				let hitNormal = (-delta.y, delta.x).Unit();
 
-			newPos = data.HitLocation + ( hitNormal * radius * 1.3 );
-			newAngle = VectorAngle( hitNormal.x, hitNormal.y ) - 90;
+				newPos = data.HitLocation + (hitNormal * radius * 1.3);
+				newAngle = VectorAngle(hitNormal.x, hitNormal.y) - 90;
 
-			let blockedFloorZ = blocked.floorPlane.ZAtPoint( data.HitLocation.xy );
-			let blockedCeilZ = blocked.ceilingPlane.ZAtPoint( data.HitLocation.xy );
+				let blockedFloorZ = blocked.floorPlane.ZAtPoint(data.HitLocation.xy);
+				let blockedCeilZ = blocked.ceilingPlane.ZAtPoint(data.HitLocation.xy);
 
-			let blockedHeight = blockedCeilZ - blockedFloorZ;
+				let blockedHeight = blockedCeilZ - blockedFloorZ;
 
-			if( newPos.z >= min( blockedCeilZ, ( blockedHeight * 0.7 ) + blockedFloorZ ) )
-			{
-				newPos.z = blockedCeilZ - height;
-				place = true;
-			}
-			else if( newPos.z <= max( blockedFloorZ, ( blockedHeight * 0.3 ) + blockedFloorZ ) )
-			{
-				newPos.z = blockedFloorZ;
-				onFloor = true;
-				place = true;
-			}
-
-			break;
-
-		case Trace_HitCeiling:
-		case Trace_HitFloor:
-			blocked = data.HitSector;
-			onFloor = data.HitType == Trace_HitFloor;
-
-			if( onFloor ? blocked.floorPlane.isSlope() : blocked.ceilingPlane.isSlope() ) break;
-
-			let hitPos = data.HitLocation;
-
-			let nearestLine = -1;
-			let nearestDist = double.Infinity;
-			let nearestVert = ( 0, 0 );
-
-			// find nearest line
-			for( int i = 0; i < blocked.lines.Size(); i++ )
-			{
-				let lll = blocked.lines[ i ];
-				let other = lll.frontsector == blocked ? lll.backsector : lll.frontsector;
-				if( other == blocked ) continue;
-
-				// math...........................
-				let delta = lll.delta;
-				let fact = ( delta dot ( hitPos.xy - lll.v1.p ) ) / ( delta dot delta );
-				let nearVert = lll.v1.p + delta * fact;
-
-				let blockedFloorZ = blocked.floorPlane.ZAtPoint( nearVert );
-				let blockedCeilZ = blocked.ceilingPlane.ZAtPoint( nearVert );
-
-				let otherFloorZ = double.Infinity;
-				let otherCeilZ = -double.Infinity;
-
-				if( other )
-				{
-					otherFloorZ = other.floorPlane.ZAtPoint( nearVert );
-					otherCeilZ = other.ceilingPlane.ZAtPoint( nearVert );
+				if (newPos.z >= min(blockedCeilZ, (blockedHeight * 0.7) + blockedFloorZ)) {
+					newPos.z = blockedCeilZ - height;
+					place = true;
+				} else if (newPos.z <= max(blockedFloorZ, (blockedHeight * 0.3) + blockedFloorZ)) {
+					newPos.z = blockedFloorZ;
+					onFloor = true;
+					place = true;
 				}
 
-				if( onFloor
-					? ( blockedFloorZ < otherFloorZ || blockedFloorZ > otherCeilZ )
-					: ( blockedCeilZ  > otherCeilZ  || blockedCeilZ < otherFloorZ )
-				)
-				{
-					delta = nearVert - hitPos.xy;
-					let nearDist = delta dot delta;
+				break;
 
-					if( nearDist < nearestDist )
-					{
-						nearestLine = i;
-						nearestDist = nearDist;
-						nearestVert = nearVert;
+			case Trace_HitCeiling:
+			case Trace_HitFloor:
+				blocked = data.HitSector;
+				onFloor = data.HitType == Trace_HitFloor;
+
+				if (onFloor ? blocked.floorPlane.isSlope() : blocked.ceilingPlane.isSlope()) break;
+
+				let hitPos = data.HitLocation;
+
+				let nearestLine = -1;
+				let nearestDist = Double.INFINITY;
+				let nearestVert = (0, 0);
+
+				// find nearest line
+				for (int i = 0; i < blocked.lines.Size(); i++) {
+					let lll = blocked.lines[ i ];
+					let other = lll.frontsector == blocked ? lll.backsector : lll.frontsector;
+					if (other == blocked) continue;
+
+					// math...........................
+					let delta = lll.delta;
+					let fact = (delta dot (hitPos.xy - lll.v1.p)) / (delta dot delta);
+					let nearVert = lll.v1.p + delta * fact;
+
+					let blockedFloorZ = blocked.floorPlane.ZAtPoint(nearVert);
+					let blockedCeilZ = blocked.ceilingPlane.ZAtPoint(nearVert);
+
+					let otherFloorZ = Double.INFINITY;
+					let otherCeilZ = -Double.INFINITY;
+
+					if (other) {
+						otherFloorZ = other.floorPlane.ZAtPoint(nearVert);
+						otherCeilZ = other.ceilingPlane.ZAtPoint(nearVert);
+					}
+
+					if (onFloor
+						? (blockedFloorZ < otherFloorZ || blockedFloorZ > otherCeilZ)
+						: (blockedCeilZ  > otherCeilZ  || blockedCeilZ < otherFloorZ)
+					) {
+						delta = nearVert - hitPos.xy;
+						let nearDist = delta dot delta;
+
+						if (nearDist < nearestDist)
+						{
+							nearestLine = i;
+							nearestDist = nearDist;
+							nearestVert = nearVert;
+						}
 					}
 				}
-			}
 
-			if( nearestLine < 0 || nearestDist > CrowbarRangeSqr) break;
+				if (nearestLine < 0 || nearestDist > CROWBAR_RANGE_SQUARED) break;
 
-			let lll = blocked.lines[ nearestLine ];
+				let lll = blocked.lines[ nearestLine ];
 
-			delta = lll.delta;
-			if( lll.frontsector == blocked )
-				delta = -delta;
+				delta = lll.delta;
+				if (lll.frontsector == blocked)
+					delta = -delta;
 
-			hitNormal = ( -delta.y, delta.x ).Unit();
+				hitNormal = (-delta.y, delta.x).Unit();
 
-			newAngle = VectorAngle( hitNormal.x, hitNormal.y ) - 90;
-			newPos.xy = nearestVert + ( hitNormal * radius * 1.3 );
+				newAngle = VectorAngle(hitNormal.x, hitNormal.y) - 90;
+				newPos.xy = nearestVert + (hitNormal * radius * 1.3);
 
-			if( onFloor )
-				newPos.z = blocked.floorPlane.ZAtPoint( nearestVert );
-			else
-				newPos.z = blocked.ceilingPlane.ZAtPoint( nearestVert ) - height;
+				if (onFloor) {
+					newPos.z = blocked.floorPlane.ZAtPoint(nearestVert);
+				} else {
+					newPos.z = blocked.ceilingPlane.ZAtPoint(nearestVert) - height;
+				}
 
-			place = true;
+				place = true;
 
-			break;
+				break;
 
-		case Trace_HitNone:
-		default:
-			break;
+			case Trace_HitNone:
+			default:
+				break;
 		}
 
-		if( place )
-		{
-			let cbr = NHDACrowbar( Spawn( "NHDACrowbar", newPos ) );
+		if (place) {
+			let cbr = NHDACrowbar(Spawn("NHDACrowbar", newPos));
 
-			if( owner.Distance3DSquared( cbr ) <= CrowbarRangeSqr )
-			{
+			if (owner.Distance3DSquared(cbr) <= CROWBAR_RANGE_SQUARED) {
 				cbr.angle = newAngle;
-				cbr.AttachCrowbar( blocked, onFloor );
+				cbr.AttachCrowbar(blocked, onFloor);
 
-				Amount -= 1;
-				GetSpareWeapon( owner );
-			}
-			else cbr.Destroy();
-		}
-	}
-
-	double strength;
-	bool zerk;
-	action void A_StrengthTics(int mintics,int maxtics=-1){
-		if(invoker.strength==1.)return;
-		if(maxtics<0)maxtics=tics;
-		int ttt=min(maxtics,int(tics/invoker.strength));
-		A_SetTics(max(mintics,int(ttt)));
-	}
-	override void DoEffect(){
-		super.DoEffect();
-		let hdp=hdplayerpawn(owner);
-		if(!hdp)return;
-		//don't run this if not in inventory
-		//otherwise the game crashes lol
-
-		if(targettimer<70)targettimer++;else{
-			tracer=null;
-			targettimer=0;
-			targethealth=0;
-		}
-		
-		strength=hdp?hdp.strength:1.;
-		zerk=HDZerk.IsZerk(owner);
-
-		if(zerk){
-			strength*=1.2;
-			if(!random[zrkbs](0,70)){
-				static const string zrkbs[]={"kill","k i l l","k I L L","K\n   I\n       L\n          L","Kill.","KILL","k i l l","Kill!","K  I  L  L","kill...","Kill...","k i l l . . .","      kill","  ... kill ...","kill,","kiiiilllll!!!","kill~","kill <3","kill uwu"};
-				hdp.usegametip("\cr"..zrkbs[random(0,zrkbs.size()-1)]);
+				amount -= 1;
+				GetSpareWeapon(owner);
+			} else {
+				cbr.Destroy();
 			}
 		}
 	}
 
+	override double GetWeaponDamage() {
+		return 50 + (3 * charge);
+	}
 
-	action void MeleeAttack(double dmg){//copied from current HDFist code as of 01-21-23
-		let punchrange=64.;//48+16
-		if(hdplayerpawn(self))punchrange*=hdplayerpawn(self).heightmult;
+	override name getWeaponDamageType() {
+		return 'bashing';
+	}
 
-		flinetracedata punchline;
-		bool punchy=linetrace(
-			angle,punchrange,pitch,
-			TRF_NOSKY,
-			offsetz:height*0.77,
-			data:punchline
-		);
-		if(!punchy)return;
+	override double GetWeaponRange() {
+		return 64.0;
+	}
 
-		//actual puff effect if the shot connects
-		LineAttack(
-			angle,
-			punchrange,
-			pitch,
-			punchline.hitline?(int(frandom(5,15)*invoker.strength)):0,
-			"none",
-			(invoker.strength>1.5)?"BulletPuffMedium":"BulletPuffSmall",
-			flags:LAF_NORANDOMPUFFZ|LAF_OVERRIDEZ,
-			offsetz:height*0.78
-		);
+	override bool getWeaponLeftHanded() {
+		return false;
+	}
 
-		if(!punchline.hitactor){
-			HDF.Give(self,"WallChunkAmmo",1);
-			if(punchline.hitline){		
-			//damage sectors
-			A_StartSound("crowbar/hitwall",CHAN_AUTO);
-			A_Recoil(1+dmg/50);
-			doordestroyer.destroydoor(self,frandom(16,frandom(16,72))*invoker.strength,frandom(0,frandom(dmg/10,dmg/5)*invoker.strength));
-			doordestroyer.CheckDirtyWindowBreak(punchline.hitline,0.09+0.03*invoker.strength,punchline.hitlocation);
-			}//breaks windows 3x better
-			return;
-		}
-		actor punchee=punchline.hitactor;
+	override double GetWeaponAttackFlags() {
+		return HDCMW_DO_PUFF|HDCMW_DO_HEADSHOT|HDCMW_ZERK_BUFF|HDCMW_DO_WALLBUST|HDCMW_DO_WINDOWBUST|HDCMW_RECOIL_ATTACKEE|HDCMW_ZERK_BUFF;
+	}
 
+	override void doWallBust(double dist, double dmg) {
+		super.doWallBust(dist, dmg * strength * 0.1);
 
-		//charge!
-		if(invoker.flicked)dmg*=1.5;
-		else dmg+=HDMath.TowardsEachOther(self,punchee)*3;
+		owner.A_StartSound("crowbar/hitwall", CHAN_AUTO);
+		owner.A_Recoil((dmg * 0.02) + 1);
+	}
 
-		//come in swinging
-		let onr=hdplayerpawn(self);
-		double ptch=0.;
-		double pyaw=0.;
-		if(onr){
-			ptch=deltaangle(onr.lastpitch,onr.pitch);
-			pyaw=deltaangle(onr.lastangle,onr.angle);
-			double iy=max(abs(ptch),abs(pyaw));
-			if(pyaw<0)iy*=1.6;
-			if(player.onground)dmg+=min(abs(iy)*5,dmg*3);
-		}
+	override void doWindowBust(FLineTraceData atkLine, double dmg) {
+		DoorDestroyer.CheckDirtyWindowBreak(atkLine.hitLine, 0.09 + (strength * 0.03), atkLine.hitLocation);
+	}
 
-		//shit happens
-		dmg*=invoker.strength*frandom(1.,1.2);
+	states {
+		select0:
+			CRWB A 0;
+			goto select0small;
 
-		//other effects
-		if(
-			onr
-			&&!punchee.bdontthrust
-			&&(
-				punchee.mass<200
-				||(
-					punchee.radius*2<punchee.height
-					&& punchline.hitlocation.z>punchee.pos.z+punchee.height*0.6
-				)
-			)
-		){
-			if(abs(pyaw)>(0.5)){
-				punchee.A_SetAngle(clamp(normalize180(punchee.angle-pyaw*100),-50,50),SPF_INTERPOLATE);
+		deselect0:
+			CRWB A 0;
+			goto deselect0small;
+
+		ready:
+			#### A 1 {
+				if (
+					invoker.wasHolding
+					&& player.cmd.buttons&(
+						BT_ATTACK
+						|BT_ALTATTACK
+						|BT_RELOAD
+						|BT_ZOOM
+						|BT_USER1
+						|BT_USER2
+						|BT_USER3
+						|BT_USER4
+					)
+				) {
+					setWeaponState("nope");
+					return;
+				}
+
+				A_WeaponReady(WRF_ALL);
+				invoker.flicked = invoker.wasHolding = false;
 			}
-			if(abs(ptch)>(0.5*65535/360)){
-				punchee.A_SetPitch(clamp((punchee.angle+ptch*100)%90,-30,30),SPF_INTERPOLATE);
+			goto readyend;
+
+		reload:
+			#### A 0 A_JumpIf(HDPlayerPawn(self).stunned > 0, "nope");
+		flick:
+			#### B 1 offset(0,50);
+			#### C 1 offset(0,36);
+			#### DDDDDD 0 A_CustomPunch((int(ceil(invoker.strength))), 1, CPF_PULLIN, "HDFistPuncher", 36);
+			#### DD 1 offset(0,38) {
+				invoker.flicked = true;
 			}
-		}
+			#### C 1 offset(0,42);
+			#### B 1 offset(0,50);
+			goto fire;
 
-		let hdmp=hdmobbase(punchee);
+		fire:
+			#### A 0 A_JumpIf(HDPlayerPawn(self).stunned > 0, "nope");
+		swing:
+			CRWB BBCD 1;//faster prep
+		swinghold:
+			TNT1 A 1 {
+				let hdp = HDPlayerPawn(self);
 
-		//headshot lol
-		if(
-			!punchee.bnopain
-			&&punchee.health>0
-			&&(
-				!hdmp
-				||!hdmp.bheadless
-			)
-			&&punchline.hitlocation.z>punchee.pos.z+punchee.height*0.75
-		){
-			punchee.A_StartSound("crowbar/hitflesh",CHAN_AUTO);
-			if(hd_debug)A_Log("HEAD SHOT");
-			hdmobbase.forcepain(punchee);
-			dmg*=frandom(1.1,1.8);
-			if(hdmp)hdmp.stunned+=(int(dmg)>>2);
-		}
+				//holding the crowbar ready tires you
+				if (!random(0, 99)) hdp.fatigue++;
+				invoker.charge = min(10, (invoker.charge + 1) * 0.333);
+			
+				//aborts swing if stunned or tired
+				if (hdp.fatigue > HDCONST_SPRINTFATIGUE) {
+					A_PlaySkinSound(SKINSOUND_GRUNT, "*usefail");
+					setWeaponState("swing_end");
 
-		if(hd_debug)A_Log("Crowbar'd "..punchee.getclassname().." for "..int(dmg).." damage!");
-
-		bool puncheewasalive=!punchee.bcorpse&&punchee.health>0;
-
-		if(dmg*2>punchee.health)punchee.A_StartSound("crowbar/hitflesh",CHAN_AUTO);
-		punchee.damagemobj(self,self,int(dmg),"melee");
-
-		if(!punchee)invoker.targethealth=0;else{
-			invoker.targethealth=punchee.health;
-			invoker.targetspawnhealth=punchee.spawnhealth();
-			invoker.targettimer=0;
-			if(
-				(
-					punchee.bismonster
-					||!!punchee.player
-				)
-				&&invoker.zerk
-			){
-				if(
-					punchee.bcorpse
-					&&puncheewasalive
-				){
-					A_StartSound("weapons/zerkding2",CHAN_WEAPON,CHANF_OVERLAP|CHANF_LOCAL);
-					givebody(10);
-					if(onr){
-						onr.fatigue-=onr.fatigue>>2;
-						onr.usegametip("\cfK I L L !");
-					}
-				}else{
-					A_StartSound("weapons/zerkding",CHAN_WEAPON,CHANF_OVERLAP|CHANF_LOCAL);
+					return;
 				}
 			}
-		}
-		
-	}
+			TNT1 A 0 A_JumpIf(PressingFire()||PressingAltFire()||PressingReload(), "swinghold" );
+			CRWB EFGHI 1;
+			CRWB J 1 {
+				A_StartSound("crowbar/swing", CHAN_WEAPON);
+				if (invoker.charge >= 8) A_StartSound("crowbar/crit", 9);
 
-	double charge;
-
-	states
-	{
-	spawn:
-		CBAR A -1;
-		stop;
-
-	pain:
-	crush:
-		CBAR A 0
-		{
-			// TODO: better pain sound
-			invoker.A_StartSound( "crowbar/hitwall" );
-			invoker.DetachCrowbar();
-		}
-		goto spawn;
-
-	select0:
-		CRWB A 0;
-		goto select0small;
-
-	deselect0:
-		CRWB A 0;
-		goto deselect0small;
-
-	ready:
-		#### A 1{
-			if(
-				invoker.washolding
-				&&player.cmd.buttons&(
-					BT_ATTACK
-					|BT_ALTATTACK
-					|BT_RELOAD
-					|BT_ZOOM
-					|BT_USER1
-					|BT_USER2
-					|BT_USER3
-					|BT_USER4
-				)
-			){
-				setweaponstate("nope");
-				return;
+				// swinging the crowbar exhausts your stamina,
+				// heavy swings are more tiring than light swings
+				HDPlayerPawn(self).fatigue += 1 + (invoker.charge * 0.5);
 			}
-			A_WeaponReady(WRF_ALL);
-			invoker.flicked=false;
-			invoker.washolding=false;
-		}goto readyend;
-
-	reload:
-		#### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
-	flick:
-		#### B 1 offset(0,50);
-		#### C 1 offset(0,36);
-		#### DDDDDD 0 A_CustomPunch((int(ceil(invoker.strength))),1,CPF_PULLIN,"HDFistPuncher",36);
-		#### DD 1 offset(0,38){invoker.flicked=true;}
-		#### C 1 offset(0,42);
-		#### B 1 offset(0,50);
-		goto fire;
-
-	fire:
-	#### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
-	swing:
-		CRWB BBCD 1;//faster prep
-	swinghold:
-		TNT1 A 1
-		{
-			let hdp=hdplayerpawn(self);
-			let swingdmg = invoker.charge;
-
-			//holding the crowbar ready tires you
-			if(!random(0,99))hdp.fatigue+=1;
-			invoker.charge = min( swingdmg + 1. / 3., 10 );
-		
-			//aborts swing if stunned or tired
-			if(
-				hdp.fatigue>HDCONST_SPRINTFATIGUE
-			){  A_PlaySkinSound(SKINSOUND_GRUNT,"*usefail");
-				setweaponstate("swing_end");
-				return;
+			CRWB KL 1;
+			CRWB M 1 A_MeleeWeaponAttack();
+			CRWB NOP 1;
+			TNT1 A 6 A_JumpIf(invoker.zerk, 1); // faster swings if zerked
+			TNT1 A 2 {
+				invoker.charge = 0; 
+				if (PressingFire()) setWeaponState("swinghold");
 			}
-		}
-		TNT1 A 0 A_JumpIf( PressingFire()||PressingAltFire()||PressingReload(), "swinghold" );
-		CRWB EFGHI 1;
-		CRWB J 1
-		{
-			A_StartSound( "crowbar/swing", CHAN_WEAPON );
-			if( invoker.charge >= 8 ) A_StartSound( "crowbar/crit", 9 );
-			hdplayerpawn(self).fatigue+=1+invoker.charge/2;
-			//swinging the crowbar exhausts your stamina,
-			//heavy swings are more tiring than light swings
-		}
-		CRWB KL 1;
-		CRWB M 1 MeleeAttack( 50 + 3 * invoker.charge );
-		CRWB NOP 1;
-		TNT1 A 6 A_JumpIf(invoker.zerk,1);//faster swings if zerked
-		TNT1 A 2
-		{
-			invoker.charge = 0; 
-			if(PressingFire())setweaponstate("swinghold");
-		}
-	swing_end:
-		CRWB DDCB 1;//faster recovery
-		#### A 0 A_JumpIf(PressingFire(),"nope");
-		goto ready;
+		swing_end:
+			CRWB DDCB 1; // faster recovery
+			#### A 0 A_JumpIf(PressingFire(), "nope");
+			goto ready;
 
-	altfire:
-	#### A 0 A_JumpIf(hdplayerpawn(self).stunned>0,"nope");
-	bodycheck:
-		#### A 3{
-			let hdp=hdplayerpawn(self);
-
-			if(
-				hdp.fatigue>HDCONST_SPRINTFATIGUE
-				||hdp.stunned>0
-				||hdp.strength<0.9
-				||(
-					!player.onground
-					&&checkmove(pos.xy-(cos(angle),sin(angle))*4)
-				)
-			){
-				setweaponstate("swing");
-				return;
-			}
-
-			hdp.fatigue+=4;
-			A_ChangeVelocity(
-				hdp.strength*(invoker.zerk?8:6)/max(1.,hdp.overloaded),
-				0,0,CVF_RELATIVE
+		altfire:
+			#### A 0 A_JumpIf(HDPlayerPawn(self).stunned > 0, "nope");
+		bodycheck:
+			#### A 3 A_Lunge(
+				HDPlayerPawn(self).strength * (invoker.zerk ? 8 : 6) / max(1.0, HDPlayerPawn(self).overloaded),
+				fatigueIncr: 4,
+				abortState: 'swing'
 			);
-		}
-		CRWB BCD 1;
-		goto swinghold;
-	
-	firemode://two-handed weapon, can't grab
-		goto nope;
-	
-	unload:
-	place:
-		CRWB BCD 2;
-	placehold:
-		TNT1 A 1 A_WeaponBusy;
-		TNT1 A 0 A_JumpIf( PressingUnload(), "placehold" );
-		TNT1 A 0
-		{
-			flinetracedata data;
-			linetrace(
-				angle, CrowbarRange, pitch, flags:0,
-				offsetz:height - 8,
-				data:data
-			);
+			CRWB BCD 1;
+			goto swinghold;
+		
+		// two-handed weapon, can't grab
+		firemode:
+			goto nope;
+		
+		unload:
+		place:
+			CRWB BCD 2;
+		placehold:
+			TNT1 A 1 A_WeaponBusy;
+			TNT1 A 0 A_JumpIf(PressingUnload(), "placehold");
+			TNT1 A 0 {
+				FLineTraceData data;
+				linetrace(
+					angle,
+					CROWBAR_RANGE,
+					pitch,
+					flags: 0,
+					offsetz: invoker.getWeaponAttackHeight(),
+					data: data
+				);
 
-			invoker.CrowbarJam( data );
-		}
-		CRWB DCB 2;
-		goto nope;
+				invoker.CrowbarJam(data);
+			}
+			CRWB DCB 2;
+			goto nope;
+
+		spawn:
+			CBAR A -1;
+			stop;
+
+		pain:
+		crush:
+			CBAR A 0 {
+				if (invoker.attached) {
+					// TODO: better pain sound
+					invoker.A_StartSound("crowbar/hitwall");
+
+					invoker.DetachCrowbar();
+				}
+			}
+			goto spawn;
 	}
 }

@@ -5,6 +5,12 @@ PICKUP_CROWBAR = "You got the crowbar! Crack some skulls!";
 
 OB_CROWBAR = "%o got bonked by %k's crowbar.";
 
+// Weapon Help Text
+CROWBARWH_FIRE = " Swing\n";
+CROWBARWH_ALTFIRE = "  Lunge and swing\n";
+CROWBARWH_RELOAD = "  Kick and swing\n";
+CROWBARWH_UNLOAD = "  Place\n";
+
 // Merchant Store Entries
 MERCH_CAT_CROWBAR = "Nicohda";
 MERCH_TAG_CROWBAR = "Crowbar";
