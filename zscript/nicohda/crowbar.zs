@@ -30,6 +30,11 @@ class NHDACrowbar : HDCoreBaseMeleeWeapon {
 		inventory.pickupmessage "$PICKUP_CROWBAR";
 		tag "$TAG_CROWBAR";
 		hdweapon.refid HDLD_CROWBAR;
+
+		damage                              50;
+		damageType                          'bashing';
+		meleeRange                          64.0;
+		HDCoreBaseMeleeWeapon.attackFlags   HDCMW_DO_HEADSHOT|HDCMW_DO_PUFF|HDCMW_DO_WALLBUST|HDCMW_DO_WINDOWBUST|HDCMW_RECOIL_ATTACKEE;
 	}
 
 	override bool CanCollideWith(Actor other, bool passive) { return super.CanCollideWith(other, passive) || (bSHOOTABLE && other.bMISSILE); }
@@ -237,27 +242,15 @@ class NHDACrowbar : HDCoreBaseMeleeWeapon {
 	}
 
 	override double GetWeaponDamage() {
-		return 50 + (3 * charge);
-	}
-
-	override name getWeaponDamageType() {
-		return 'bashing';
-	}
-
-	override double GetWeaponRange() {
-		return 64.0;
+		return super.getWeaponDamage() + (3 * charge);
 	}
 
 	override bool getWeaponLeftHanded() {
 		return false;
 	}
 
-	override double GetWeaponAttackFlags() {
-		return HDCMW_DO_PUFF|HDCMW_DO_HEADSHOT|HDCMW_ZERK_BUFF|HDCMW_DO_WALLBUST|HDCMW_DO_WINDOWBUST|HDCMW_RECOIL_ATTACKEE|HDCMW_ZERK_BUFF;
-	}
-
 	override void doWallBust(double dist, double dmg) {
-		super.doWallBust(dist, dmg * strength * 0.1);
+		super.doWallBust(dist, dmg * strength * 0.2);
 
 		owner.A_StartSound("crowbar/hitwall", CHAN_AUTO);
 		owner.A_Recoil((dmg * 0.02) + 1);
@@ -303,14 +296,14 @@ class NHDACrowbar : HDCoreBaseMeleeWeapon {
 		reload:
 			#### A 0 A_JumpIf(HDPlayerPawn(self).stunned > 0, "nope");
 		flick:
-			#### B 1 offset(0,50);
-			#### C 1 offset(0,36);
+			#### B 1 offset(0, 50);
+			#### C 1 offset(0, 36);
 			#### DDDDDD 0 A_CustomPunch((int(ceil(invoker.strength))), 1, CPF_PULLIN, "HDFistPuncher", 36);
-			#### DD 1 offset(0,38) {
+			#### DD 1 offset(0, 38) {
 				invoker.flicked = true;
 			}
-			#### C 1 offset(0,42);
-			#### B 1 offset(0,50);
+			#### C 1 offset(0, 42);
+			#### B 1 offset(0, 50);
 			goto fire;
 
 		fire:
