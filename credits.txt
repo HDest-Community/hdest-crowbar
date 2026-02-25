@@ -1,2 +1,0 @@
-Crowbar sprites, sounds, charge mechanic
-	https://github.com/OrdinaryMagician/soundless_m
