@@ -13,6 +13,7 @@ class NHDACrowbar : HDCoreBaseMeleeWeapon {
 	default {
 		+NOBLOOD
 		+NODAMAGE
+		+SPRITEANGLE
 		
 		scale 0.75;
 		radius 12;
@@ -21,15 +22,16 @@ class NHDACrowbar : HDCoreBaseMeleeWeapon {
 		health TELEFRAG_DAMAGE;
 		painchance 256;
 		
-		+SpriteAngle
-		SpriteAngle 180;
+		spriteAngle 180;
 
+		tag "$TAG_CROWBAR";
 		obituary "$OB_CROWBAR"; 
+		inventory.pickupmessage "$PICKUP_CROWBAR";
+		inventory.icon "CBARA0";
+
 		weapon.kickback 120;
 		weapon.slotpriority 0.2;
-		inventory.pickupmessage "$PICKUP_CROWBAR";
-		tag "$TAG_CROWBAR";
-		hdweapon.refid HDLD_CROWBAR;
+		hdweapon.refid "cbr";
 
 		damage                              50;
 		damageType                          'bashing';
@@ -321,9 +323,8 @@ class NHDACrowbar : HDCoreBaseMeleeWeapon {
 				//aborts swing if stunned or tired
 				if (hdp.fatigue > HDCONST_SPRINTFATIGUE) {
 					A_PlaySkinSound(SKINSOUND_GRUNT, "*usefail");
-					setWeaponState("swing_end");
 
-					return;
+					setWeaponState("swing_end");
 				}
 			}
 			TNT1 A 0 A_JumpIf(PressingFire()||PressingAltFire()||PressingReload(), "swinghold" );
