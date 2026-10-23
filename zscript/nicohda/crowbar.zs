@@ -318,8 +318,12 @@ class NHDACrowbar : HDCoreBaseMeleeWeapon {
 
 				//holding the crowbar ready tires you
 				if (!random(0, 99)) hdp.fatigue++;
-				invoker.charge = min(10, (invoker.charge + 1) * 0.333);
-			
+
+				let oldCharge = invoker.charge;
+				invoker.charge = min(10.0, oldCharge + (invoker.strength * 0.33333));
+
+				HDCore.log('HDCrowbar', LOGGING_DEBUG, "Old Charge: "..oldCharge..", newCharge: "..invoker.charge);
+
 				//aborts swing if stunned or tired
 				if (hdp.fatigue > HDCONST_SPRINTFATIGUE) {
 					A_PlaySkinSound(SKINSOUND_GRUNT, "*usefail");
